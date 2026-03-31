@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code BUDDY - Interactive Pet Companion</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+@font-face{font-family:'Mono';src:local('SF Mono'),local('Menlo'),local('Consolas'),local('monospace')}
+body{background:#0d1117;color:#c9d1d9;font-family:'SF Mono',Menlo,Consolas,monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{color:#58a6ff;font-size:1.4em;margin-bottom:4px;text-align:center}
+.subtitle{color:#8b949e;font-size:.75em;margin-bottom:20px;text-align:center}
+.main{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:1100px;width:100%}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;min-width:320px;flex:1}
+.card h2{color:#58a6ff;font-size:.9em;margin-bottom:12px;border-bottom:1px solid #21262d;padding-bottom:8px}
+.sprite-box{background:#0d1117;border:2px solid #30363d;border-radius:6px;padding:12px;text-align:center;min-height:120px;position:relative;cursor:pointer;user-select:none;transition:border-color .3s}
+.sprite-box:hover{border-color:#58a6ff}
+.sprite-box pre{font-size:14px;line-height:1.3;margin:0;white-space:pre}
+.sprite-name{text-align:center;margin-top:6px;font-size:.8em;font-style:italic}
+.hearts{position:absolute;top:-8px;left:0;right:0;text-align:center;color:#f778ba;font-size:16px;pointer-events:none;opacity:0;transition:opacity .3s}
+.hearts.show{opacity:1;animation:floatUp 2.5s ease-out forwards}
+@keyframes floatUp{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-30px);opacity:0}}
+.bubble{background:#161b22;border:1px solid;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-style:italic;font-size:.8em;min-height:20px;transition:opacity .5s;position:relative}
+.bubble::after{content:'';position:absolute;bottom:-6px;left:50%;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid;transform:translateX(-50%)}
+.controls{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.ctrl-row{display:flex;align-items:center;gap:8px;font-size:.75em}
+.ctrl-row label{color:#8b949e;min-width:50px}
+.ctrl-row select,.ctrl-row input{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-family:inherit;font-size:inherit}
+.ctrl-row select{cursor:pointer}
+.ctrl-row input[type=text]{flex:1}
+.btn{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:.75em;transition:all .2s}
+.btn:hover{background:#30363d;border-color:#58a6ff}
+.btn.primary{background:#238636;border-color:#2ea043;color:#fff}
+.btn.primary:hover{background:#2ea043}
+.stats{margin-top:12px}
+.stat-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.7em}
+.stat-label{min-width:80px;color:#8b949e}
+.stat-bar{flex:1;height:10px;background:#21262d;border-radius:3px;overflow:hidden}
+.stat-fill{height:100%;border-radius:3px;transition:width .5s}
+.stat-val{min-width:28px;text-align:right;color:#8b949e}
+.rarity-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.7em;margin-right:8px}
+.r-common{color:#8b949e;border:1px solid #30363d}
+.r-uncommon{color:#3fb950;border:1px solid #238636}
+.r-rare{color:#a371f7;border:1px solid #8957e5}
+.r-epic{color:#f778ba;border:1px solid #db61a2}
+.r-legendary{color:#d29922;border:1px solid #d29922;text-shadow:0 0 4px #d29922}
+.shiny-badge{color:#e3b341;font-size:.7em;margin-left:4px}
+.gallery{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-top:20px;max-width:1100px;width:100%}
+.gallery h2{color:#58a6ff;font-size:.9em;margin-bottom:10px;border-bottom:1px solid #21262d;padding-bottom:6px}
+.gallery-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.gallery-item{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;cursor:pointer;text-align:center;transition:all .2s;width:80px}
+.gallery-item:hover,.gallery-item.active{border-color:#58a6ff;background:#161b22}
+.gallery-item pre{font-size:7px;line-height:1.1;margin-bottom:2px;white-space:pre;pointer-events:none}
+.gallery-item .name{font-size:.55em;color:#8b949e}
+.footer{margin-top:20px;color:#484f58;font-size:.65em;text-align:center}
+.footer a{color:#58a6ff;text-decoration:none}
+</style>
+</head>
+<body>
+<h1>[ CLAUDE CODE BUDDY ]</h1>
+<div class="subtitle">Interactive Pet Companion — faithful to leaked buddy/sprites.ts</div>
+
+<div class="main">
+  <div class="card" style="max-width:380px">
+    <h2>Your Companion</h2>
+    <div class="bubble" id="bubble" style="opacity:0"></div>
+    <div class="sprite-box" id="spriteBox" onclick="petCompanion()">
+      <div class="hearts" id="hearts">♥ ♥ ♥</div>
+      <pre id="spriteDisplay"></pre>
+    </div>
+    <div class="sprite-name">
+      <span id="rarityBadge" class="rarity-badge"></span>
+      <span id="speciesName"></span>
+      <span id="shinyBadge" class="shiny-badge"></span>
+    </div>
+    <div class="controls">
+      <div class="ctrl-row">
+        <label>User ID</label>
+        <input type="text" id="userId" value="claude-user" placeholder="Enter user ID">
+        <button class="btn primary" onclick="rollFromInput()">Hatch</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" onclick="reroll()">🎲 Reroll</button>
+        <button class="btn" onclick="petCompanion()">🐾 Pet</button>
+        <button class="btn" onclick="triggerBubble()">💬 Talk</button>
+      </div>
+      <div class="ctrl-row">
+        <label>Eye</label>
+        <select id="eyeSelect" onchange="changeEye()"></select>
+      </div>
+      <div class="ctrl-row">
+        <label>Hat</label>
+        <select id="hatSelect" onchange="changeHat()"></select>
+      </div>
+      <div class="ctrl-row">
+        <label>Shiny</label>
+        <select id="shinySelect" onchange="changeShiny()">
+          <option value="0">Off</option>
+          <option value="1">On ✦</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:340px">
+    <h2>Stats & Info</h2>
+    <div id="companionInfo" style="font-size:.75em;margin-bottom:12px"></div>
+    <div class="stats" id="statsDisplay"></div>
+    <div style="margin-top:16px;border-top:1px solid #21262d;padding-top:12px">
+      <h2 style="margin-bottom:8px">Rarity Drop Rates</h2>
+      <div style="font-size:.7em;color:#8b949e">
+        <div><span class="rarity-badge r-common">★ Common</span> 60%</div>
+        <div style="margin-top:3px"><span class="rarity-badge r-uncommon">★★ Uncommon</span> 25%</div>
+        <div style="margin-top:3px"><span class="rarity-badge r-rare">★★★ Rare</span> 10%</div>
+        <div style="margin-top:3px"><span class="rarity-badge r-epic">★★★★ Epic</span> 4%</div>
+        <div style="margin-top:3px"><span class="rarity-badge r-legendary">★★★★★ Legendary</span> 1%</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid #21262d;padding-top:12px">
+      <h2 style="margin-bottom:8px">Animation</h2>
+      <div style="font-size:.65em;color:#8b949e">
+        <div>TICK: 500ms | IDLE_SEQUENCE:</div>
+        <div id="seqDisplay" style="color:#58a6ff;margin-top:4px;word-break:break-all"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gallery">
+  <h2>Species Gallery — All 18 Companions</h2>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</div>
+
+<div class="footer">
+  Source: <a href="https://github.com/nirholas/claude-code/tree/main/src/buddy" target="_blank">buddy/sprites.ts</a> |
+  <a href="https://claude-buddy.vercel.app/" target="_blank">claude-buddy.vercel.app</a> |
+  Based on Claude Code leaked source (March 31, 2026)
+</div>
+
+<script>
+const SPECIES=['duck','goose','blob','cat','dragon','octopus','owl','penguin','turtle','snail','ghost','axolotl','capybara','cactus','robot','rabbit','mushroom','chonk'];
+const EYES=['·','✦','×','◉','@','°'];
+const HATS=['none','crown','tophat','propeller','halo','wizard','beanie','tinyduck'];
+const RARITIES=['common','uncommon','rare','epic','legendary'];
+const RARITY_WEIGHTS={common:60,uncommon:25,rare:10,epic:4,legendary:1};
+const RARITY_STARS={common:'★',uncommon:'★★',rare:'★★★',epic:'★★★★',legendary:'★★★★★'};
+const RARITY_COLORS={common:'#8b949e',uncommon:'#3fb950',rare:'#a371f7',epic:'#f778ba',legendary:'#d29922'};
+const STAT_NAMES=['DEBUGGING','PATIENCE','CHAOS','WISDOM','SNARK'];
+const STAT_COLORS=['#58a6ff','#3fb950','#f85149','#a371f7','#d29922'];
+const RARITY_FLOOR={common:5,uncommon:15,rare:25,epic:35,legendary:50};
+
+const HAT_LINES={none:'',crown:' \\^^^/ ',tophat:' [___] ',propeller:'  -+-  ',halo:'  ( )  ',wizard:'  /^\\  ',beanie:' (___) ',tinyduck:'   ,>  '};
+
+const BODIES={
+duck:[[' ','    __      ','  <({E} )___ ',' (  ._>    ','   `--´     '],[' ','    __      ','  <({E} )___ ',' (  ._>    ','   `--´~    '],[' ','    __      ','  <({E} )___ ',' (  .__>   ','   `--´     ']],
+goose:[[' ','    ({E}>    ','     ||     ','   _(__)_   ','    ^^^^    '],[' ','    ({E}>    ','     ||     ','   _(__)_   ','    ^^^^    '],[' ','    ({E}>>   ','     ||     ','   _(__)_   ','    ^^^^    ']],
+blob:[[' ','   .----.   ','  ( {E}  {E} ) ','  (      )  ','   `----´   '],[' ','  .------.  ','  ( {E}  {E} ) ','  (      )  ','  `------´  '],[' ','    .--.    ','   ({E} {E})  ','   (    )   ','    `--´    ']],
+cat:[[' ','   /\\_/\\   ','  ( {E}   {E}) ','  (  ω  )   ','  (")_(")   '],[' ','   /\\_/\\   ','  ( {E}   {E}) ','  (  ω  )   ','  (")_(")~  '],[' ','   /\\-/\\   ','  ( {E}   {E}) ','  (  ω  )   ','  (")_(")   ']],
+dragon:[[' ','  /^\\  /^\\ ',' <  {E}  {E}  > ',' (   ~~   ) ','  `-vvvv-´  '],[' ','  /^\\  /^\\ ',' <  {E}  {E}  > ',' (        ) ','  `-vvvv-´  '],['  ~ ~       ','  /^\\  /^\\ ',' <  {E}  {E}  > ',' (   ~~   ) ','  `-vvvv-´  ']],
+octopus:[[' ','   .----.   ','  ( {E}  {E} ) ','  (______) ','  /\\/\\/\\/\\  '],[' ','   .----.   ','  ( {E}  {E} ) ','  (______) ','  \\/\\/\\/\\/  '],['     o      ','   .----.   ','  ( {E}  {E} ) ','  (______) ','  /\\/\\/\\/\\  ']],
+owl:[[' ','   /\\  /\\   ','  (({E})({E})) ','  (  ><  )  ','   `----´   '],[' ','   /\\  /\\   ','  (({E})({E})) ','  (  ><  )  ','   .----.   '],[' ','   /\\  /\\   ','  (({E})(-))  ','  (  ><  )  ','   `----´   ']],
+penguin:[[' ','   .---.    ','  ({E}>{E})    ',' /(   )\\   ','   `---´    '],[' ','   .---.    ','  ({E}>{E})    ',' |(   )|   ','   `---´    '],['   .---.    ','  ({E}>{E})    ',' /(   )\\   ','   `---´    ','    ~ ~     ']],
+turtle:[[' ','   _,--._ ','  ( {E}  {E} ) ',' /[______]\\ ','  ``    ``  '],[' ','   _,--._ ','  ( {E}  {E} ) ',' /[______]\\ ','  ``    ``  '],[' ','   _,--._ ','  ( {E}  {E} ) ',' /[======]\\ ','  ``    ``  ']],
+snail:[[' ',' {E}    .--. ','  \\  ( @ ) ','   \\_`--´  ',' ~~~~~~~    '],[' ',' {E}    .--. ','  |  ( @ ) ','   \\_`--´  ',' ~~~~~~~    '],[' ',' {E}    .--. ','  \\  ( @ ) ','   \\_`--´  ','  ~~~~~~    ']],
+ghost:[[' ','   .----.   ','  / {E}  {E} \\ ','  |      |  ','  ~`~``~`~  '],[' ','   .----.   ','  / {E}  {E} \\ ','  |      |  ','  `~`~~`~`  '],['    ~ ~     ','   .----.   ','  / {E}  {E} \\ ','  |      |  ','  ~~`~~`~~  ']],
+axolotl:[[' ','}~(______)~{','}~({E} .. {E})~{','  ( .--. )  ','  (_/  \\_)  '],[' ','~}(______){~','~}({E} .. {E}){~','  ( .--. )  ','  (_/  \\_)  '],[' ','}~(______)~{','}~({E} .. {E})~{','  (  --  )  ','  ~_/  \\_~  ']],
+capybara:[[' ','  n______n  ',' ( {E}    {E} ) ','  (  oo  )  ','  `------´  '],[' ','  n______n  ',' ( {E}    {E} ) ','  (  Oo  )  ','  `------´  '],['    ~ ~     ','  u______n  ',' ( {E}    {E} ) ','  (  oo  )  ','  `------´  ']],
+cactus:[[' ','  n ____ n  ',' | |{E}  {E}| | ',' |_|    |_| ','   |    |   '],[' ','    ____    ',' n |{E}  {E}| n ',' |_|    |_| ','   |    |   '],['    n  n    ',' | ____ |  ',' | |{E}  {E}| | ',' |_|    |_| ','   |    |   ']],
+robot:[[' ','   .[||].   ','  [ {E}  {E} ] ','  [ ==== ]  ','  `------´  '],[' ','   .[||].   ','  [ {E}  {E} ] ','  [ -==- ]  ','  `------´  '],['     *      ','   .[||].   ','  [ {E}  {E} ] ','  [ ==== ]  ','  `------´  ']],
+rabbit:[[' ','   (\\__/)   ','  ( {E}  {E} ) ',' =(  ..  )= ','  (")__(")  '],[' ','   (|__/)   ','  ( {E}  {E} ) ',' =(  ..  )= ','  (")__(")  '],[' ','   (\\__/)   ','  ( {E}  {E} ) ',' =( . . )= ','  (")__(")  ']],
+mushroom:[[' ',' .-o-OO-o-. ','(__________)','   |{E}  {E}|   ','   |____|   '],[' ',' .-O-oo-O-. ','(__________)','   |{E}  {E}|   ','   |____|   '],[' . o  .     ',' .-o-OO-o-. ','(__________)','   |{E}  {E}|   ','   |____|   ']],
+chonk:[[' ','   /\\  /\\   ','  ( {E}  {E} ) ','  (  ..  )  ','  `------´  '],[' ','   /\\  /|   ','  ( {E}  {E} ) ','  (  ..  )  ','  `------´  '],[' ','   /\\  /\\   ','  ( {E}  {E} ) ','  (  ..  )  ','  `------´~ ']]
+};
+
+const FACES={
+duck:(e)=>`(${e}>`,goose:(e)=>`(${e}>`,blob:(e)=>`(${e}${e})`,cat:(e)=>`=${e}ω${e}=`,
+dragon:(e)=>`<${e}~${e}>`,octopus:(e)=>`~(${e}${e})~`,owl:(e)=>`(${e})(${e})`,
+penguin:(e)=>`(${e}>)`,turtle:(e)=>`[${e}_${e}]`,snail:(e)=>`${e}(@)`,
+ghost:(e)=>`/${e}${e}\\`,axolotl:(e)=>`}${e}.${e}{`,capybara:(e)=>`(${e}oo${e})`,
+cactus:(e)=>`|${e} ${e}|`,robot:(e)=>`[${e}${e}]`,rabbit:(e)=>`(${e}..${e})`,
+mushroom:(e)=>`|${e} ${e}|`,chonk:(e)=>`(${e}.${e})`
+};
+
+const QUIPS=[
+"Ship it!","Looking good~","Nice refactor.","*purrs*","Don't forget tests!",
+"Hmm, interesting...","That's a lot of tokens.","I believe in you!","*yawns*",
+"Have you tried turning it off and on?","Clean code!","*nibbles keyboard*",
+"Let's gooo!","One more commit...","*stretches*","Needs more cowbell.",
+"Remember to hydrate!","*watches intently*","The vibes are immaculate.",
+"Error? What error?","*blinks slowly*","Trust the process.",
+"You're on fire today!","Maybe add a comment?","*does a little dance*"
+];
+
+const IDLE_SEQUENCE=[0,0,0,0,1,0,0,0,-1,0,0,2,0,0,0];
+const TICK_MS=500;
+const HEART_FRAMES=['  ♥   ♥  ','  ♥ ♥  ♥ ',' ♥  ♥  ♥  ','♥  ♥    ♥','  ·  ·  · '];
+
+let companion={species:'cat',eye:'·',hat:'none',rarity:'common',shiny:false,stats:{}};
+let tick=0,bubbleTimer=null,heartTimer=null,petting=false;
+
+function mulberry32(seed){let a=seed>>>0;return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
+function hashString(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function pick(rng,arr){return arr[Math.floor(rng()*arr.length)]}
+function rollRarity(rng){const total=Object.values(RARITY_WEIGHTS).reduce((a,b)=>a+b,0);let roll=rng()*total;for(const r of RARITIES){roll-=RARITY_WEIGHTS[r];if(roll<0)return r}return'common'}
+function rollStats(rng,rarity){const floor=RARITY_FLOOR[rarity];const peak=pick(rng,STAT_NAMES);let dump=pick(rng,STAT_NAMES);while(dump===peak)dump=pick(rng,STAT_NAMES);const stats={};for(const n of STAT_NAMES){if(n===peak)stats[n]=Math.min(100,floor+50+Math.floor(rng()*30));else if(n===dump)stats[n]=Math.max(1,floor-10+Math.floor(rng()*15));else stats[n]=floor+Math.floor(rng()*40)}return stats}
+
+function rollCompanion(seed){
+  const rng=mulberry32(hashString(seed+'friend-2026-401'));
+  const rarity=rollRarity(rng);
+  return{
+    rarity,species:pick(rng,SPECIES),eye:pick(rng,EYES),
+    hat:rarity==='common'?'none':pick(rng,HATS),
+    shiny:rng()<0.01,stats:rollStats(rng,rarity)
+  };
+}
+
+function renderSprite(bones,frame=0){
+  const frames=BODIES[bones.species];
+  const body=frames[frame%frames.length].map(l=>l.replaceAll('{E}',bones.eye));
+  const lines=[...body];
+  if(bones.hat!=='none'&&!lines[0].trim()){lines[0]=HAT_LINES[bones.hat]}
+  if(!lines[0].trim()&&frames.every(f=>!f[0].trim()))lines.shift();
+  return lines;
+}
+
+function updateSprite(){
+  const step=petting?tick%3:IDLE_SEQUENCE[tick%IDLE_SEQUENCE.length];
+  let blink=false,frame;
+  if(petting){frame=tick%3}
+  else if(step===-1){frame=0;blink=true}
+  else{frame=step%3}
+  let lines=renderSprite(companion,frame);
+  if(blink)lines=lines.map(l=>l.replaceAll(companion.eye,'-'));
+  const color=RARITY_COLORS[companion.rarity];
+  const el=document.getElementById('spriteDisplay');
+  el.style.color=companion.shiny?'#e3b341':color;
+  el.textContent=lines.join('\n');
+  if(companion.shiny){
+    document.getElementById('spriteBox').style.boxShadow=`0 0 12px ${RARITY_COLORS.legendary}40`;
+  }else{
+    document.getElementById('spriteBox').style.boxShadow='none';
+  }
+  document.getElementById('spriteBox').style.borderColor=color;
+  const seqEl=document.getElementById('seqDisplay');
+  const idx=tick%IDLE_SEQUENCE.length;
+  seqEl.innerHTML=IDLE_SEQUENCE.map((v,i)=>i===idx?`<span style="background:#58a6ff;color:#0d1117;padding:0 3px;border-radius:2px">${v}</span>`:v).join(', ');
+}
+
+function updateInfo(){
+  const c=companion;
+  const color=RARITY_COLORS[c.rarity];
+  document.getElementById('rarityBadge').textContent=RARITY_STARS[c.rarity]+' '+c.rarity;
+  document.getElementById('rarityBadge').className='rarity-badge r-'+c.rarity;
+  document.getElementById('speciesName').textContent=c.species;
+  document.getElementById('speciesName').style.color=color;
+  document.getElementById('shinyBadge').textContent=c.shiny?'✦ SHINY':'';
+  document.getElementById('companionInfo').innerHTML=`
+    <div style="color:${color}">Species: <b>${c.species}</b></div>
+    <div>Eye: ${c.eye} | Hat: ${c.hat} | Face: ${FACES[c.species](c.eye)}</div>
+    <div>Rarity: <span style="color:${color}">${c.rarity}</span> ${c.shiny?'<span style="color:#e3b341">✦ SHINY</span>':''}</div>
+  `;
+  let statsHTML='';
+  STAT_NAMES.forEach((n,i)=>{
+    const v=c.stats[n]||0;
+    statsHTML+=`<div class="stat-row"><span class="stat-label">${n}</span><div class="stat-bar"><div class="stat-fill" style="width:${v}%;background:${STAT_COLORS[i]}"></div></div><span class="stat-val">${v}</span></div>`;
+  });
+  document.getElementById('statsDisplay').innerHTML=statsHTML;
+}
+
+function setCompanion(c){
+  companion=c;
+  document.getElementById('eyeSelect').value=c.eye;
+  document.getElementById('hatSelect').value=c.hat;
+  document.getElementById('shinySelect').value=c.shiny?'1':'0';
+  updateInfo();
+  updateGalleryActive();
+}
+
+function rollFromInput(){
+  const uid=document.getElementById('userId').value||'anon';
+  setCompanion(rollCompanion(uid));
+}
+
+function reroll(){
+  const seed=Math.random().toString(36).slice(2);
+  document.getElementById('userId').value=seed;
+  setCompanion(rollCompanion(seed));
+}
+
+function changeEye(){companion.eye=document.getElementById('eyeSelect').value;updateInfo()}
+function changeHat(){companion.hat=document.getElementById('hatSelect').value;updateInfo()}
+function changeShiny(){companion.shiny=document.getElementById('shinySelect').value==='1';updateInfo()}
+
+function petCompanion(){
+  petting=true;
+  const h=document.getElementById('hearts');
+  h.className='hearts show';
+  h.textContent=HEART_FRAMES[0];
+  let frame=0;
+  clearTimeout(heartTimer);
+  const hAnim=setInterval(()=>{
+    frame++;
+    if(frame>=HEART_FRAMES.length){clearInterval(hAnim);h.className='hearts';petting=false;return}
+    h.textContent=HEART_FRAMES[frame];
+  },500);
+  heartTimer=setTimeout(()=>{petting=false},2500);
+  triggerBubble('*purrs happily*');
+}
+
+function triggerBubble(text){
+  const msg=text||pick(()=>Math.random(),QUIPS);
+  const b=document.getElementById('bubble');
+  const color=RARITY_COLORS[companion.rarity];
+  b.textContent=`"${msg}"`;
+  b.style.borderColor=color;
+  b.style.color=color;
+  b.style.opacity='1';
+  b.querySelector('::after')
+  clearTimeout(bubbleTimer);
+  bubbleTimer=setTimeout(()=>{b.style.opacity='.3'},7000);
+  setTimeout(()=>{b.style.opacity='0'},10000);
+}
+
+function buildGallery(){
+  const grid=document.getElementById('galleryGrid');
+  grid.innerHTML='';
+  SPECIES.forEach(sp=>{
+    const item=document.createElement('div');
+    item.className='gallery-item'+(companion.species===sp?' active':'');
+    item.dataset.species=sp;
+    const tmpBones={species:sp,eye:'·',hat:'none',rarity:'common',shiny:false,stats:{}};
+    const lines=renderSprite(tmpBones,0);
+    item.innerHTML=`<pre>${lines.join('\n')}</pre><div class="name">${sp}</div>`;
+    item.onclick=()=>{companion.species=sp;updateInfo();updateGalleryActive()};
+    grid.appendChild(item);
+  });
+}
+
+function updateGalleryActive(){
+  document.querySelectorAll('.gallery-item').forEach(el=>{
+    el.classList.toggle('active',el.dataset.species===companion.species);
+  });
+}
+
+function init(){
+  EYES.forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;document.getElementById('eyeSelect').appendChild(o)});
+  HATS.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;document.getElementById('hatSelect').appendChild(o)});
+  setCompanion(rollCompanion('claude-user'));
+  buildGallery();
+  setInterval(()=>{tick++;updateSprite()},TICK_MS);
+  updateSprite();
+}
+
+init();
+</script>
+</body>
+</html>
